@@ -3,12 +3,16 @@
 import React, { useEffect, useState, Suspense } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useInView } from "react-intersection-observer";
-import { ChevronUp, Leaf, Bird, Trees as Tree } from "lucide-react";
+import { ChevronUp, Leaf, Bird, Trees as Tree, Star } from "lucide-react";
 import { api } from "@/convex/_generated/api";
-import { useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import Image from "next/image";
 import { Id } from "@/convex/_generated/dataModel";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 // Компонент Skeleton для загрузки
 const LoadingSkeleton = () => (
   <>
@@ -42,6 +46,101 @@ const LoadingSkeleton = () => (
     </div>
   </>
 );
+
+// Компонент для отображения рейтинга в звездах
+const StarRating = ({ rating, setRating }: { rating: number, setRating?: (rating: number) => void }) => {
+  return (
+    <div className="flex">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <Star
+          key={star}
+          className={`h-5 w-5 cursor-pointer ${star <= rating ? 'text-yellow-500 fill-yellow-500' : 'text-gray-300'}`}
+          onClick={() => setRating && setRating(star)}
+        />
+      ))}
+    </div>
+  );
+};
+
+// Компонент отзывов
+const ReviewSection = ({ reserveId }: { reserveId: Id<"reserves"> }) => {
+  const [reviewText, setReviewText] = useState("");
+  const [rating, setRating] = useState(5);
+  const createReview = useMutation(api.reserves.createReview);
+  const reviews = useQuery(api.reserves.getReserveReviews, { reserveId });
+  const { isAuthenticated } = useConvexAuth();
+  const router = useRouter();
+
+  const handleSubmitReview = async () => {
+    if (!reviewText.trim()) {
+      toast.error("Пожалуйста, введите текст отзыва");
+      return;
+    }
+
+    try {
+      await createReview({ reserveId, rating, text: reviewText });
+      toast.success("Отзыв успешно добавлен");
+      setReviewText("");
+      setRating(5);
+    } catch (error) {
+      console.error("Ошибка при добавлении отзыва:", error);
+      toast.error("Ошибка при добавлении отзыва");
+    }
+  };
+
+  return (
+    <div className="mt-12 bg-white rounded-xl p-8 shadow-lg">
+      <h2 className="text-2xl font-semibold mb-6 text-emerald-800">Отзывы</h2>
+      
+      {isAuthenticated ? (
+        <div className="mb-8">
+          <h3 className="text-lg font-medium mb-2">Оставить отзыв</h3>
+          <div className="mb-2">
+            <label className="block text-sm mb-1">Ваша оценка</label>
+            <StarRating rating={rating} setRating={setRating} />
+          </div>
+          <Textarea 
+            placeholder="Поделитесь своими впечатлениями о заповеднике..."
+            value={reviewText}
+            onChange={(e) => setReviewText(e.target.value)}
+            className="mb-2"
+            rows={4}
+          />
+          <Button onClick={handleSubmitReview}>Отправить отзыв</Button>
+        </div>
+      ) : (
+        <div className="mb-8 p-4 bg-gray-100 rounded-lg text-center">
+          <p>Войдите, чтобы оставить отзыв</p>
+          <Button variant="outline" className="mt-2" onClick={() => router.push('/signin')}>
+            Войти
+          </Button>
+        </div>
+      )}
+      
+      <div className="space-y-4">
+        {!reviews?.length && <p className="text-gray-500">Отзывов пока нет</p>}
+        
+        {reviews?.map((review) => (
+          <div key={review._id} className="border-b pb-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center">
+                <div className="bg-emerald-100 text-emerald-800 rounded-full w-8 h-8 flex items-center justify-center mr-2">
+                  {review.userName.charAt(0).toUpperCase()}
+                </div>
+                <span className="font-medium">{review.userName}</span>
+              </div>
+              <span className="text-sm text-gray-500">
+                {new Date(review.date).toLocaleDateString()}
+              </span>
+            </div>
+            <StarRating rating={review.rating} />
+            <p className="mt-2">{review.text}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 interface Reserve {
   _id: Id<"reserves">;
@@ -255,6 +354,10 @@ export default function ReserveDetail({
             </motion.div>
           ))}
         </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <ReviewSection reserveId={reserve._id} />
       </div>
 
       {/* Back to Top Button */}

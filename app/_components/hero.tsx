@@ -28,7 +28,7 @@ export const Hero = () => {
         </p>
         <Button
           size="lg"
-          onClick={() => router.push("/reserves")}
+          onClick={() => router.push("/#")}
           className="bg-emerald-600 hover:bg-emerald-700"
         >
           Изучить заповедники

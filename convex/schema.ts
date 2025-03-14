@@ -17,4 +17,13 @@ export default defineSchema({
     imageUrl: v.optional(v.string()),
     additionalImages: v.optional(v.array(v.string())),
   }).index("by_region", ["region"]),
+
+  reviews: defineTable({
+    reserveId: v.id("reserves"),
+    userId: v.string(),
+    userName: v.string(),
+    rating: v.number(),
+    text: v.string(),
+    date: v.number(),
+  }).index("by_reserve", ["reserveId"]),
 });
